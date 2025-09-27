@@ -14,6 +14,8 @@ import net.ltxprogrammer.changed.process.ProcessTransfur;
 import net.ltxprogrammer.changed.util.EntityUtil;
 import net.ltxprogrammer.changed.util.ItemUtil;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -29,6 +31,7 @@ import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.pathfinder.Path;
@@ -41,6 +44,8 @@ public class Exoskeleton extends AbstractRobot {
     @Nullable
     private LivingEntity clientSideCachedAttackTarget;
     private int clientSideAttackTime;
+
+    private ListTag savedEnchantments = new ListTag();
 
     public static Optional<Pair<ItemStack, ExoskeletonItem<?>>> getEntityExoskeleton(LivingEntity entity) {
         return AccessorySlots.getForEntity(entity)
@@ -61,6 +66,7 @@ public class Exoskeleton extends AbstractRobot {
         stack.setDamageValue((int) ((1.0f - this.getCharge()) * stack.getMaxDamage()));
         if (this.hasCustomName())
             stack.setHoverName(this.getCustomName());
+        stack.getOrCreateTag().put("Enchantments", savedEnchantments);
         return stack;
     }
 
@@ -68,6 +74,19 @@ public class Exoskeleton extends AbstractRobot {
         this.setCharge(1.0f - ((float) (stack.getDamageValue()) / (float) (stack.getMaxDamage())));
         if (stack.hasCustomHoverName())
             this.setCustomName(stack.getHoverName());
+        savedEnchantments = stack.getEnchantmentTags();
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        tag.put("Enchantments", savedEnchantments);
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        savedEnchantments = tag.getList("Enchantments", 10);
     }
 
     @Override
@@ -224,7 +243,19 @@ public class Exoskeleton extends AbstractRobot {
 
                 this.setPos(entityPos.getX() + 0.5D, entityPos.getY(), entityPos.getZ() + 0.5D);
                 this.setOldPosAndRot();
+            } else {
+                if (this.level.getGameRules().getBoolean(GameRules.RULE_DOENTITYDROPS)) {
+                    this.spawnAtLocation(this.getDropItem());
+                }
+
+                this.discard();
             }
+        } else if (this.isCharging()) {
+            if (this.level.getGameRules().getBoolean(GameRules.RULE_DOENTITYDROPS)) {
+                this.spawnAtLocation(this.getDropItem());
+            }
+
+            this.discard();
         }
     }
 

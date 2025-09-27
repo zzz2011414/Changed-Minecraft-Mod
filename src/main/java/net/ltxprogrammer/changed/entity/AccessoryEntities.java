@@ -4,14 +4,17 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.datafixers.util.Pair;
 import net.ltxprogrammer.changed.Changed;
 import net.ltxprogrammer.changed.ability.IAbstractChangedEntity;
 import net.ltxprogrammer.changed.data.AccessorySlotType;
 import net.ltxprogrammer.changed.data.AccessorySlots;
+import net.ltxprogrammer.changed.data.RegistryElementPredicate;
 import net.ltxprogrammer.changed.entity.beast.CustomLatexEntity;
 import net.ltxprogrammer.changed.init.ChangedRegistry;
 import net.ltxprogrammer.changed.network.packet.AccessorySyncPacket;
 import net.ltxprogrammer.changed.network.packet.ChangedPacket;
+import net.ltxprogrammer.changed.util.Cacheable;
 import net.ltxprogrammer.changed.util.EntityUtil;
 import net.ltxprogrammer.changed.util.UniversalDist;
 import net.ltxprogrammer.changed.world.inventory.AccessoryAccessMenu;
@@ -43,17 +46,26 @@ import javax.annotation.Nonnull;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-public class AccessoryEntities extends SimplePreparableReloadListener<Multimap<EntityType<?>, AccessorySlotType>> {
+public class AccessoryEntities extends SimplePreparableReloadListener<List<Pair<RegistryElementPredicate<EntityType<?>>, AccessorySlotType>>> {
     public static final AccessoryEntities INSTANCE = new AccessoryEntities();
-    private final Multimap<EntityType<?>, AccessorySlotType> validEntities = HashMultimap.create();
+    private List<Pair<RegistryElementPredicate<EntityType<?>>, AccessorySlotType>> validEntitiesPreCache = null;
+    private final Cacheable<Multimap<EntityType<?>, AccessorySlotType>> validEntities = Cacheable.of(() -> {
+        Multimap<EntityType<?>, AccessorySlotType> working = HashMultimap.create();
+
+        validEntitiesPreCache.forEach(pair -> {
+            pair.getFirst().getValues().forEach(entityType -> {
+                working.put(entityType, pair.getSecond());
+            });
+        });
+
+        validEntitiesPreCache = null;
+        return working;
+    }).preResolved(HashMultimap.create());
 
     public static EntityType<?> getApparentEntityType(LivingEntity entity) {
         entity = EntityUtil.maybeGetOverlaying(entity);
@@ -91,21 +103,19 @@ public class AccessoryEntities extends SimplePreparableReloadListener<Multimap<E
     }
 
     public Predicate<AccessorySlotType> canEntityTypeUseSlot(EntityType<?> entityType) {
-        final var allowedSlots = validEntities.get(entityType);
+        final var allowedSlots = validEntities.get().get(entityType);
         return allowedSlots::contains;
     }
 
-    private Multimap<EntityType<?>, AccessorySlotType> processJSONFile(JsonObject root) {
-        Multimap<EntityType<?>, AccessorySlotType> working = HashMultimap.create();
+    private List<Pair<RegistryElementPredicate<EntityType<?>>, AccessorySlotType>> processJSONFile(JsonObject root) {
+        List<Pair<RegistryElementPredicate<EntityType<?>>, AccessorySlotType>> working = new ArrayList<>();
 
         root.getAsJsonArray("entities").forEach(entity -> {
-            final ResourceLocation entityId = new ResourceLocation(entity.getAsString());
-            if (!ForgeRegistries.ENTITIES.containsKey(entityId))
-                throw new IllegalArgumentException("Unknown entity " + entityId);
-            final EntityType<?> entityType = ForgeRegistries.ENTITIES.getValue(new ResourceLocation(entity.getAsString()));
+            final var predicate = RegistryElementPredicate.parseString(ForgeRegistries.ENTITIES, entity.getAsString());
+            predicate.throwIfMissing();
 
             root.getAsJsonArray("slots").forEach(slot -> {
-                working.put(entityType, ChangedRegistry.ACCESSORY_SLOTS.get().getValue(new ResourceLocation(slot.getAsString())));
+                working.add(Pair.of(predicate, ChangedRegistry.ACCESSORY_SLOTS.get().getValue(new ResourceLocation(slot.getAsString()))));
             });
         });
 
@@ -114,12 +124,12 @@ public class AccessoryEntities extends SimplePreparableReloadListener<Multimap<E
 
     @Override
     @NotNull
-    public Multimap<EntityType<?>, AccessorySlotType> prepare(ResourceManager resources, @Nonnull ProfilerFiller profiler) {
+    public List<Pair<RegistryElementPredicate<EntityType<?>>, AccessorySlotType>> prepare(ResourceManager resources, @Nonnull ProfilerFiller profiler) {
         final var entries = resources.listResources("accessories/entities", filename ->
                 ResourceLocation.isValidResourceLocation(filename) &&
                         filename.endsWith(".json"));
 
-        Multimap<EntityType<?>, AccessorySlotType> working = HashMultimap.create();
+        List<Pair<RegistryElementPredicate<EntityType<?>>, AccessorySlotType>> working = new ArrayList<>();
 
         entries.forEach(filename -> {
             try {
@@ -128,7 +138,7 @@ public class AccessoryEntities extends SimplePreparableReloadListener<Multimap<E
                 try {
                     final Reader reader = new InputStreamReader(content.getInputStream(), StandardCharsets.UTF_8);
 
-                    working.putAll(processJSONFile(JsonParser.parseReader(reader).getAsJsonObject()));
+                    working.addAll(processJSONFile(JsonParser.parseReader(reader).getAsJsonObject()));
 
                     reader.close();
                 } catch (Exception e) {
@@ -138,7 +148,7 @@ public class AccessoryEntities extends SimplePreparableReloadListener<Multimap<E
 
                 content.close();
             } catch (Exception e) {
-                Changed.LOGGER.error("Failed to load entities for Curios from \"{}\" : {}", filename, e);
+                Changed.LOGGER.error("Failed to load entities for accessories from \"{}\" : {}", filename, e);
             }
         });
 
@@ -146,9 +156,9 @@ public class AccessoryEntities extends SimplePreparableReloadListener<Multimap<E
     }
 
     @Override
-    protected void apply(@NotNull Multimap<EntityType<?>, AccessorySlotType> output, @NotNull ResourceManager resources, @NotNull ProfilerFiller profiler) {
+    protected void apply(@NotNull List<Pair<RegistryElementPredicate<EntityType<?>>, AccessorySlotType>> output, @NotNull ResourceManager resources, @NotNull ProfilerFiller profiler) {
+        validEntitiesPreCache = output;
         validEntities.clear();
-        validEntities.putAll(output);
     }
 
     public static class SyncPacket implements ChangedPacket {
@@ -195,7 +205,7 @@ public class AccessoryEntities extends SimplePreparableReloadListener<Multimap<E
 
             if (context.getDirection().getReceptionSide() == LogicalSide.CLIENT) {
                 AccessoryEntities.INSTANCE.validEntities.clear();
-                AccessoryEntities.INSTANCE.validEntities.putAll(this.map);
+                AccessoryEntities.INSTANCE.validEntities.forceValue(this.map);
 
                 if (this.receiverAccessories != null) {
                     this.receiverAccessories.handle(contextSupplier);
@@ -207,12 +217,12 @@ public class AccessoryEntities extends SimplePreparableReloadListener<Multimap<E
     }
 
     public SyncPacket syncPacket() {
-        return new SyncPacket(this.validEntities);
+        return new SyncPacket(this.validEntities.get());
     }
 
     public SyncPacket syncPacket(ServerPlayer receiver) {
         return AccessorySlots.getForEntity(receiver).map(
-                slots -> new SyncPacket(this.validEntities, new AccessorySyncPacket(receiver.getId(), slots))
+                slots -> new SyncPacket(this.validEntities.get(), new AccessorySyncPacket(receiver.getId(), slots))
         ).orElseGet(this::syncPacket);
     }
 }

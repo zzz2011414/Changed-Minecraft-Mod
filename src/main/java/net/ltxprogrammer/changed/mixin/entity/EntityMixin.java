@@ -1,10 +1,11 @@
 package net.ltxprogrammer.changed.mixin.entity;
 
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.ltxprogrammer.changed.ability.AbstractAbility;
 import net.ltxprogrammer.changed.ability.GrabEntityAbility;
 import net.ltxprogrammer.changed.ability.IAbstractChangedEntity;
 import net.ltxprogrammer.changed.block.StasisChamber;
-import net.ltxprogrammer.changed.block.entity.StasisChamberBlockEntity;
 import net.ltxprogrammer.changed.entity.ChangedEntity;
 import net.ltxprogrammer.changed.entity.LivingEntityDataExtension;
 import net.ltxprogrammer.changed.entity.SeatEntity;
@@ -14,7 +15,6 @@ import net.ltxprogrammer.changed.init.ChangedAbilities;
 import net.ltxprogrammer.changed.init.ChangedTags;
 import net.ltxprogrammer.changed.process.ProcessTransfur;
 import net.ltxprogrammer.changed.util.EntityUtil;
-import net.ltxprogrammer.changed.util.StackUtil;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
@@ -36,7 +36,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Optional;
@@ -97,17 +96,24 @@ public abstract class EntityMixin extends net.minecraftforge.common.capabilities
         });
     }
 
+    @WrapMethod(method = "setPose")
+    public void setVariantPose(Pose pose, Operation<Void> original) {
+        original.call(pose);
+        // Forward calls to setPose directly to variant, instead of waiting for tick
+        ProcessTransfur.getPlayerTransfurVariantSafe(EntityUtil.playerOrNull((Entity)(Object)this))
+                .map(TransfurVariantInstance::getChangedEntity)
+                .ifPresent(entity -> entity.setPose(pose));
+    }
+
     @Unique
     private boolean isCallingIsInWall = false;
 
-    @Inject(method = "isInWall", at = @At("HEAD"))
-    public void startIsInWall(CallbackInfoReturnable<Boolean> cir) {
+    @WrapMethod(method = "isInWall")
+    public boolean wrapIsInWall(Operation<Boolean> original) {
         isCallingIsInWall = true;
-    }
-
-    @Inject(method = "isInWall", at = @At("TAIL"))
-    public void endIsInWall(CallbackInfoReturnable<Boolean> cir) {
+        var result = original.call();
         isCallingIsInWall = false;
+        return result;
     }
 
     @Inject(method = "getEyePosition()Lnet/minecraft/world/phys/Vec3;", at = @At("HEAD"), cancellable = true)
