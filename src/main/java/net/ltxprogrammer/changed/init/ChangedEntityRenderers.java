@@ -162,5 +162,7 @@ public class ChangedEntityRenderers {
 
         event.registerEntityRenderer(ChangedEntities.LATEX_INKBALL.get(), ThrownItemRenderer::new);
         event.registerEntityRenderer(ChangedEntities.GAS_PARTICLE.get(), GasParticleRenderer::new);
+        event.registerEntityRenderer(ChangedEntities.WALL_SIGN.get(), WallSignRenderer::new);
+        event.registerEntityRenderer(ChangedEntities.EMITTED_LASER.get(), EmittedLaserRenderer::new);
     }
 }

@@ -12,7 +12,7 @@ public class ChangedScreens {
     @SubscribeEvent
     public static void clientLoad(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            MenuScreens.register(ChangedMenus.COMPUTER.get(), ComputerExploreScreen::new);
+            MenuScreens.register(ChangedMenus.COMPUTER.get(), ComputerTextScreen::new);
             MenuScreens.register(ChangedMenus.INFUSER.get(), InfuserScreen::new);
             MenuScreens.register(ChangedMenus.PURIFIER.get(), PurifierScreen::new);
             MenuScreens.register(ChangedMenus.ABILITY_RADIAL.get(), AbilityRadialScreen::new);
@@ -22,6 +22,8 @@ public class ChangedScreens {
             MenuScreens.register(ChangedMenus.NOTE.get(), NoteScreen::new);
             MenuScreens.register(ChangedMenus.STASIS_CHAMBER.get(), StasisChamberScreen::new);
             MenuScreens.register(ChangedMenus.ACCESSORY_ACCESS.get(), AccessoryAccessScreen::new);
+            MenuScreens.register(ChangedMenus.TAMED_DARK_LATEX.get(), TamedDarkLatexScreen::new);
+            MenuScreens.register(ChangedMenus.TAMED_DARK_LATEX_INVENTORY.get(), TamedDarkLatexInventoryScreen::new);
         });
     }
 }

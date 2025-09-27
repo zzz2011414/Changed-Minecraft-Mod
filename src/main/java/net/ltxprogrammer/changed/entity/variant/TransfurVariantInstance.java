@@ -75,6 +75,7 @@ public abstract class TransfurVariantInstance<T extends ChangedEntity> {
     public MiningStrength miningStrength;
     public UseItemMode itemUseMode;
     public float jumpStrength;
+    public float stepSize;
     public int ageAsVariant = 0;
     protected int air = -100;
     protected int jumpCharges = 0;
@@ -132,6 +133,11 @@ public abstract class TransfurVariantInstance<T extends ChangedEntity> {
         tag.putBoolean("isTemporaryFromSuit", isTemporaryFromSuit);
 
         tag.put("abilities", this.saveAbilities());
+
+        var entityData = entity.savePlayerVariantData();
+        if (!entityData.isEmpty())
+            tag.put("entityData", entityData);
+
         return tag;
     }
 
@@ -176,6 +182,9 @@ public abstract class TransfurVariantInstance<T extends ChangedEntity> {
         transfurContext = TransfurContext.fromTag(tag.getCompound("transfurContext"), host.level());
 
         this.loadAbilities(tag.getCompound("abilities"));
+
+        if (tag.contains("entityData"))
+            entity.readPlayerVariantData(tag.getCompound("entityData"));
     }
 
     public void handleRespawn() {
@@ -227,6 +236,7 @@ public abstract class TransfurVariantInstance<T extends ChangedEntity> {
         this.miningStrength = parent.miningStrength;
         this.itemUseMode = parent.itemUseMode;
         this.jumpStrength = parent.jumpStrength;
+        this.stepSize = parent.stepSize;
 
         var builder = new ImmutableMap.Builder<AbstractAbility<?>, AbstractAbilityInstance>();
         parent.abilities.forEach(abilityFunction -> {
@@ -483,6 +493,10 @@ public abstract class TransfurVariantInstance<T extends ChangedEntity> {
                 serverPlayer.connection.send(
                         Changed.PACKET_HANDLER.toVanillaPacket(builderMover.build(), NetworkDirection.PLAY_TO_CLIENT)
                 );
+
+            serverPlayer.connection.send(
+                    Changed.PACKET_HANDLER.toVanillaPacket(AccessoryEntities.INSTANCE.syncPacket(serverPlayer), NetworkDirection.PLAY_TO_CLIENT)
+            );
         }
 
         /*else if (event.getEntity() instanceof Player localPlayer && UniversalDist.isLocalPlayer(localPlayer)) {
@@ -609,6 +623,8 @@ public abstract class TransfurVariantInstance<T extends ChangedEntity> {
 
     public boolean canWear(Player player, ItemStack itemStack, EquipmentSlot slot) {
         if (slot == EquipmentSlot.MAINHAND)
+            return true;
+        if (itemStack.isEmpty())
             return true;
         itemStack = FormFittingEnchantment.getFormFitted(player, itemStack, slot);
         if (itemStack.getItem() instanceof ExtendedItemProperties wearableItem) {
@@ -896,15 +912,15 @@ public abstract class TransfurVariantInstance<T extends ChangedEntity> {
             host.setPose(Pose.SWIMMING);
 
         // Sink in water
-        if (host.getAttributeValue(ForgeMod.SWIM_SPEED.get()) > 1.0) {
+        if (host.getAttributeBaseValue(ForgeMod.SWIM_SPEED.get()) > 1.0) {
             host.setNoGravity(host.isEyeInFluid(FluidTags.WATER));
         }
 
         // Step size
-        if (host.isCrouching() && parent.stepSize > 0.6f)
+        if (host.isCrouching() && stepSize > 0.6f)
             host.setMaxUpStep(0.6f);
         else
-            host.setMaxUpStep(parent.stepSize);
+            host.setMaxUpStep(stepSize);
 
         // Effects
         if (visionType == VisionType.BLIND) {

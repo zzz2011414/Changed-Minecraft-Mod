@@ -8,6 +8,8 @@ import net.ltxprogrammer.changed.entity.beast.*;
 import net.ltxprogrammer.changed.entity.beast.boss.BehemothHandLeft;
 import net.ltxprogrammer.changed.entity.beast.boss.BehemothHandRight;
 import net.ltxprogrammer.changed.entity.beast.boss.BehemothHead;
+import net.ltxprogrammer.changed.entity.decoration.EmittedLaser;
+import net.ltxprogrammer.changed.entity.decoration.WallSign;
 import net.ltxprogrammer.changed.entity.projectile.GasParticle;
 import net.ltxprogrammer.changed.entity.projectile.LatexInkball;
 import net.ltxprogrammer.changed.entity.robot.Exoskeleton;
@@ -106,10 +108,10 @@ public class ChangedEntities {
             EntityType.Builder.of(WhiteLatexKnight::new, ChangedMobCategories.CHANGED).clientTrackingRange(10).sized(0.7F, 1.93F),
             ChangedEntities::overworldOnly, SpawnPlacements.Type.ON_GROUND, WhiteLatexKnight::checkEntitySpawnRules);
     public static final RegistryObject<EntityType<WhiteLatexCentaur>> WHITE_LATEX_CENTAUR = registerSpawning("white_latex_centaur", 0xFFFFFF, 0x1E1E1E,
-            EntityType.Builder.of(WhiteLatexCentaur::new, ChangedMobCategories.CHANGED).clientTrackingRange(10).sized(1.1F, 2.0F),
+            EntityType.Builder.of(WhiteLatexCentaur::new, ChangedMobCategories.CHANGED).clientTrackingRange(10).sized(1.25F, 2.0F),
             ChangedEntities::overworldOnly, SpawnPlacements.Type.ON_GROUND, WhiteLatexCentaur::checkEntitySpawnRules);
     public static final RegistryObject<EntityType<LatexGnollTaur>> LATEX_GNOLL_TAUR = registerSpawning("latex_gnoll_taur", 0xffbf75, 0xc0604d,
-            EntityType.Builder.of(LatexGnollTaur::new, MobCategory.MONSTER).clientTrackingRange(10).sized(1.1F, 2.0F),
+            EntityType.Builder.of(LatexGnollTaur::new, MobCategory.MONSTER).clientTrackingRange(10).sized(1.25F, 2.0F),
             ChangedEntities::overworldOnly, SpawnPlacements.Type.ON_GROUND, LatexGnollTaur::checkEntitySpawnRules);
     public static final RegistryObject<EntityType<HeadlessKnight>> HEADLESS_KNIGHT = registerSpawning("headless_knight", 0xFFFFFF, 0x1E1E1E,
             EntityType.Builder.of(HeadlessKnight::new, ChangedMobCategories.CHANGED).clientTrackingRange(10).sized(1.1F, 1.1F),
@@ -359,6 +361,10 @@ public class ChangedEntities {
             () -> EntityType.Builder.<LatexInkball>of(LatexInkball::new, MobCategory.MISC).sized(0.25F, 0.25F).clientTrackingRange(4).updateInterval(10).build("latex_inkball"));
     public static final RegistryObject<EntityType<GasParticle>> GAS_PARTICLE = REGISTRY.register("gas_particle",
             () -> EntityType.Builder.of(GasParticle::new, MobCategory.MISC).sized(0.75F, 0.75F).clientTrackingRange(4).updateInterval(10).build("gas_particle"));
+    public static final RegistryObject<EntityType<WallSign>> WALL_SIGN = REGISTRY.register("wall_sign",
+            () -> EntityType.Builder.of(WallSign::new, MobCategory.MISC).sized(0.5F, 0.5F).clientTrackingRange(10).updateInterval(Integer.MAX_VALUE).build("wall_sign"));
+    public static final RegistryObject<EntityType<EmittedLaser>> EMITTED_LASER = REGISTRY.register("emitted_laser",
+            () -> EntityType.Builder.of(EmittedLaser::new, MobCategory.MISC).sized(0.5F, 0.5F).clientTrackingRange(10).updateInterval(Integer.MAX_VALUE).build("wall_sign"));
 
     // TODO make register function for non `ChangedEntity`
 

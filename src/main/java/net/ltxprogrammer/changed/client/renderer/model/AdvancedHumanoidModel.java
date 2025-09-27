@@ -15,10 +15,7 @@ import net.ltxprogrammer.changed.entity.ChangedEntity;
 import net.ltxprogrammer.changed.entity.robot.Exoskeleton;
 import net.ltxprogrammer.changed.extension.ChangedCompatibility;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.ArmedModel;
-import net.minecraft.client.model.EntityModel;
-import net.minecraft.client.model.HeadedModel;
-import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.*;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
@@ -98,6 +95,14 @@ public abstract class AdvancedHumanoidModel<T extends ChangedEntity> extends Pla
             });
         }
 
+        if (limbSwing == 0.0f && limbSwingAmount == 0.0f && ageInTicks == 0.0f && netHeadYaw == 0.0f && headPitch == 0.0f) {
+            ((ClientLivingEntityExtender) entity).getOrderedAnimations().forEach(instance -> {
+                instance.resetToBaseline(this, entity, identifier -> {
+                    return identifier.limb() != Limb.LEFT_ARM && identifier.limb() != Limb.RIGHT_ARM;
+                });
+            });
+        }
+
         Exoskeleton.getEntityExoskeleton(entity).ifPresent(pair -> {
             AccessoryLayer.getRenderer(pair.getSecond()).ifPresent(renderer -> {
                 if (renderer instanceof WornExoskeletonRenderer exoRenderer) {
@@ -111,6 +116,64 @@ public abstract class AdvancedHumanoidModel<T extends ChangedEntity> extends Pla
 
     public abstract ModelPart getArm(HumanoidArm arm);
     public abstract ModelPart getLeg(HumanoidArm leg);
+
+    public @Nullable ModelPart getLimb(Limb limb) {
+        return switch (limb) {
+            case HEAD -> this.getHead();
+            case HEAD2 -> {
+                if (this instanceof TripleHeadedModel<?> tripleHeadedModel)
+                    yield tripleHeadedModel.getCenterHead();
+                if (this instanceof DoubleHeadedModel<?> doubleHeadedModel)
+                    yield doubleHeadedModel.getOtherHead();
+                yield null;
+            }
+            case HEAD3 -> {
+                if (this instanceof TripleHeadedModel<?> tripleHeadedModel)
+                    yield tripleHeadedModel.getOtherHead();
+                yield null;
+            }
+            case TORSO -> this.getTorso();
+            case LEFT_ARM -> this.getArm(HumanoidArm.LEFT);
+            case RIGHT_ARM -> this.getArm(HumanoidArm.RIGHT);
+            case LEFT_ARM2 -> {
+                if (this instanceof TripleArmedModel<?> tripleArmedModel)
+                    yield tripleArmedModel.getMiddleArm(HumanoidArm.LEFT);
+                if (this instanceof DoubleArmedModel<?> doubleArmedModel)
+                    yield doubleArmedModel.getOtherArm(HumanoidArm.LEFT);
+                yield null;
+            }
+            case RIGHT_ARM2 -> {
+                if (this instanceof TripleArmedModel<?> tripleArmedModel)
+                    yield tripleArmedModel.getMiddleArm(HumanoidArm.RIGHT);
+                if (this instanceof DoubleArmedModel<?> doubleArmedModel)
+                    yield doubleArmedModel.getOtherArm(HumanoidArm.RIGHT);
+                yield null;
+            }
+            case LEFT_ARM3 -> {
+                if (this instanceof TripleArmedModel<?> tripleArmedModel)
+                    yield tripleArmedModel.getOtherArm(HumanoidArm.LEFT);
+                yield null;
+            }
+            case RIGHT_ARM3 -> {
+                if (this instanceof TripleArmedModel<?> tripleArmedModel)
+                    yield tripleArmedModel.getOtherArm(HumanoidArm.RIGHT);
+                yield null;
+            }
+            case LEFT_LEG -> this.getLeg(HumanoidArm.LEFT);
+            case RIGHT_LEG -> this.getLeg(HumanoidArm.RIGHT);
+            case ABDOMEN -> {
+                if (this instanceof LeglessModel leglessModel)
+                    yield leglessModel.getAbdomen();
+                yield null;
+            }
+            case LOWER_TORSO -> {
+                if (this instanceof LowerTorsoedModel leglessModel)
+                    yield leglessModel.getLowerTorso();
+                yield null;
+            }
+            default -> null;
+        };
+    }
 
     @Nullable
     public HelperModel getTransfurHelperModel(Limb limb) {
